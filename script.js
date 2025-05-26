@@ -18,6 +18,7 @@ let currentSessionDetails = null;
 let isSessionLive = false;
 let mainIntervalId = null;
 let totalLapsForSession = null; // Variable to store total laps from config
+let imagePathsConfig = null;
 
 let driverDataStore = new Map();
 let lastKnownRenderedPositions = {};
@@ -362,18 +363,22 @@ function processAndBuildDisplayData(apiData) {
 function updateStaticHeaderInfo() {
     if (currentMeetingDetails && currentSessionDetails) {
         eventTitleEl.textContent = `${currentMeetingDetails.meeting_name || ""}: ${currentSessionDetails.session_name || ""}`;
-        if (currentMeetingDetails.country_code) {
-            countryFlagImgEl.src = `https://flagcdn.com/w40/${currentMeetingDetails.country_code.toLowerCase()}.png`;
-            countryFlagImgEl.alt = currentMeetingDetails.country_name || "";
-            countryFlagImgEl.style.display = 'inline-block';
+
+        // The flag source is now set in the init function based on session_config.json
+        // Keep this part if you still want to handle cases where no flag is in the config
+        if (countryFlagImgEl.src) { // Check if src was set in init
+             countryFlagImgEl.style.display = 'inline-block';
         } else {
-            countryFlagImgEl.style.display = 'none';
+             countryFlagImgEl.style.display = 'none';
         }
+
+
     } else {
         eventTitleEl.textContent = 'Cargando evento...';
         countryFlagImgEl.style.display = 'none';
     }
 }
+
 
 function updateGeneralHeaderDisplay(trackStatusData, drivers) {
     if (isSessionLive && currentSessionDetails) {
@@ -508,10 +513,25 @@ async function init() {
             const config = await configResponse.json();
             // Find the totalLaps for the current session using the sessionKey
             if (config.sessions && config.sessions[currentSessionId]) {
-                totalLapsForSession = config.sessions[currentSessionId].totalLaps;
+                const sessionConfig = config.sessions[currentSessionId]; // Store session config
+
+                totalLapsForSession = sessionConfig.totalLaps;
                 console.log(`Total laps loaded from config for session ${currentSessionId}: ${totalLapsForSession}`);
+
+                // Get the flag path from the session config <--- Add this block
+                if (sessionConfig.flag) {
+                    currentMeetingDetails.country_code = null; // Clear country_code to force using the flag path
+                    currentMeetingDetails.country_name = "Monaco"; // Set a name for alt text
+                    countryFlagImgEl.src = sessionConfig.flag;
+                    countryFlagImgEl.alt = currentMeetingDetails.country_name || "Country Flag";
+                    countryFlagImgEl.style.display = 'inline-block';
+                    console.log(`Flag path loaded from config for session ${currentSessionId}: ${sessionConfig.flag}`);
+                } else {
+                    console.warn(`No specific flag found in session_config.json for session ${currentSessionId}.`);
+                }
+
             } else {
-                console.warn(`No specific totalLaps found in session_config.json for session ${currentSessionId}.`);
+                console.warn(`No specific totalLaps or flag found in session_config.json for session ${currentSessionId}.`);
             }
         } else {
             console.warn(`Failed to fetch session_config.json: ${configResponse.status}`);
@@ -520,6 +540,7 @@ async function init() {
         console.error("Error fetching session_config.json:", error);
     }
     // --- End fetch session_config.json ---
+
 
     updateStaticHeaderInfo();
 

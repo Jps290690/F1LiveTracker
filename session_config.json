@@ -3,7 +3,8 @@
     "sessions": {
         "9979": {
             "totalLaps": 78,
-            "notes": "Add a note here if you like"
+            "notes": "Add a note here if you like",
+            "flag": "images/mon.svg"
         }
     }
 }
