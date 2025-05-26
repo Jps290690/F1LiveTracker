@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Live Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <div id="event-info">
+            <div id="header-left">
+                <img id="country-flag" src="" alt="" style="display: none;" />
+                <h1 id="event-title">Cargando...</h1>
+            </div>
+            <div id="header-center">
+                <p>Tiempo Restante: <span id="time-remaining">--:--:--</span></p>
+                <p>Vuelta Actual: <span id="laps-info">--</span></p> <!-- Etiqueta cambiada -->
+            </div>
+            <div id="header-right">
+                <p>Estado: <span id="track-status">Cargando...</span></p>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div id="loading-message">Cargando datos de la carrera...</div>
+        <div class="table-container">
+            <table id="standings-table">
+                <thead>
+                    <tr>
+                        <th>Pos</th>
+                        <th>Nº</th>
+                        <th>Piloto</th>
+                        <th>DRS</th>
+                        <th>Neum.</th>
+                        <th>Info</th>
+                        <th>Gap</th>
+                        <th>Última Vuelta / Mejor Personal</th>
+                    </tr>
+                </thead>
+                <tbody id="standings-table-body">
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2024-2025 F1 Live Tracker</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
