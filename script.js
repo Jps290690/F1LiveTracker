@@ -57,12 +57,12 @@ function formatTime(value, includeSignIfPositive = false) {
 
 function getTyreImg(compound) {
     const c = String(compound).toLowerCase();
-    if (c.startsWith('soft')) return 'https://f1-dash.com/tires/soft.svg';
-    if (c.startsWith('medium')) return 'https://f1-dash.com/tires/medium.svg';
-    if (c.startsWith('hard')) return 'https://f1-dash.com/tires/hard.svg';
-    if (c.startsWith('wet')) return 'https://f1-dash.com/tires/wet.svg';
-    if (c.startsWith('inter')) return 'https://f1-dash.com/tires/intermediate.svg';
-    return 'https://f1-dash.com/tires/unknown.svg';
+    if (c.startsWith('soft')) return 'images/soft.svg'; // Changed path
+    if (c.startsWith('medium')) return 'images/medium.svg'; // Changed path
+    if (c.startsWith('hard')) return 'images/hard.svg'; // Changed path
+    if (c.startsWith('wet')) return 'images/wet.svg'; // Changed path
+    if (c.startsWith('inter')) return 'images/intermediate.svg'; // Changed path
+    return 'images/unknown.svg'; // Changed path
 }
 
 async function fetchAllDataForSession(sessionKey) {
@@ -364,18 +364,14 @@ function updateStaticHeaderInfo() {
     if (currentMeetingDetails && currentSessionDetails) {
         eventTitleEl.textContent = `${currentMeetingDetails.meeting_name || ""}: ${currentSessionDetails.session_name || ""}`;
 
-        // The flag source is now set in the init function based on session_config.json
-        // Keep this part if you still want to handle cases where no flag is in the config
-        if (countryFlagImgEl.src) { // Check if src was set in init
-             countryFlagImgEl.style.display = 'inline-block';
-        } else {
-             countryFlagImgEl.style.display = 'none';
-        }
-
+        // The flag source and display are handled in the init function
+        // No need to do anything with countryFlagImgEl here unless
+        // you have other static updates for it based on meeting/session details
+        // (which you currently don't seem to have).
 
     } else {
         eventTitleEl.textContent = 'Cargando evento...';
-        countryFlagImgEl.style.display = 'none';
+        countryFlagImgEl.style.display = 'none'; // Ensure hidden if no meeting/session
     }
 }
 
@@ -518,25 +514,27 @@ async function init() {
                 totalLapsForSession = sessionConfig.totalLaps;
                 console.log(`Total laps loaded from config for session ${currentSessionId}: ${totalLapsForSession}`);
 
-                // Get the flag path from the session config <--- Add this block
+                // Get the flag path from the session config and set display
                 if (sessionConfig.flag) {
-                    currentMeetingDetails.country_code = null; // Clear country_code to force using the flag path
-                    currentMeetingDetails.country_name = "Monaco"; // Set a name for alt text
-                    countryFlagImgEl.src = sessionConfig.flag;
-                    countryFlagImgEl.alt = currentMeetingDetails.country_name || "Country Flag";
-                    countryFlagImgEl.style.display = 'inline-block';
+                    countryFlagImgEl.src = sessionConfig.flag; // Set the local flag path
+                    countryFlagImgEl.alt = currentMeetingDetails?.country_name || "Country Flag"; // Use country name or default alt
+                    countryFlagImgEl.style.display = 'inline-block'; // Show the flag
                     console.log(`Flag path loaded from config for session ${currentSessionId}: ${sessionConfig.flag}`);
                 } else {
-                    console.warn(`No specific flag found in session_config.json for session ${currentSessionId}.`);
+                    countryFlagImgEl.style.display = 'none'; // Hide the flag if no local flag is specified
+                    console.warn(`No specific flag found in session_config.json for session ${currentSessionId}. Hiding flag.`);
                 }
 
             } else {
-                console.warn(`No specific totalLaps or flag found in session_config.json for session ${currentSessionId}.`);
+                countryFlagImgEl.style.display = 'none'; // Hide if no session config found
+                console.warn(`No specific totalLaps or flag found in session_config.json for session ${currentSessionId}. Hiding flag.`);
             }
         } else {
-            console.warn(`Failed to fetch session_config.json: ${configResponse.status}`);
+            countryFlagImgEl.style.display = 'none'; // Hide if session_config.json fetch failed
+            console.warn(`Failed to fetch session_config.json: ${configResponse.status}. Hiding flag.`);
         }
     } catch (error) {
+        countryFlagImgEl.style.display = 'none'; // Hide on error
         console.error("Error fetching session_config.json:", error);
     }
     // --- End fetch session_config.json ---
