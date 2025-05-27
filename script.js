@@ -75,8 +75,7 @@ async function fetchAllDataForSession(sessionKey) {
             `/drivers?session_key=${sessionKey}`,
             `/laps?session_key=${sessionKey}`,
             // `/car_data?session_key=${sessionKey}`, // Commented out: initial all car_data fetch
-            `/stints?session_key=${sessionKey}`,
-            `/intervals?session_key=${sessionKey}`,
+            `/stints?session_key=${sessionKey}`, `/intervals?session_key=${sessionKey}`,
             `/track_status?session_key=${sessionKey}`
         ];
 
@@ -88,8 +87,7 @@ async function fetchAllDataForSession(sessionKey) {
         );
 
         // Adjusted destructuring to match the remaining endpoints
-        const [positions, driverDetails, allLaps, stints, intervals, trackStatus] = baseResponses;
-
+        const [positions, driverDetails, allLaps, stints, intervals, trackStatus] = baseResponses; // Corrected destructuring
         // Extract active driver numbers from the position data
         // const activeDriverNumbers = Array.from(new Set(positions.map(p => p.driver_number))); // Commented out: related to individual car_data fetches
 
@@ -107,15 +105,12 @@ async function fetchAllDataForSession(sessionKey) {
         //    .catch(() => { console.warn(`Fetch failed for car_data for driver ${driverNumber}`); return []; })
         //);
 
-        // const allCarDataResponses = await Promise.all(carDataPromises); // Commented out: Promise.all call including carDataPromises
+        // const allCarDataResponses = await Promise.all(carDataPromises); // Commented out: Promise.all call including carDataPromises - THIS WAS THE CAUSE OF THE ERROR
         // const combinedCarData = allCarDataResponses.flat(); // Commented out: combining car data responses
-
         return {
             positions: positions,
             driverDetails: driverDetails,
             allLaps: allLaps,
-            carData: [], // Provide an empty array for carData since it's not being fetched
-            stints: stints, // Corrected variable name
             intervals: intervals,
             trackStatus: trackStatus,
         };
