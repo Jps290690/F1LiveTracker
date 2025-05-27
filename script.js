@@ -72,7 +72,15 @@ async function fetchAllDataForSession(sessionKey) {
             `/drivers?session_key=${sessionKey}`,
             `/laps?session_key=${sessionKey}`,
             `/car_data?session_key=${sessionKey}`,
-            `/stints?session_key=${sessionKey}`,
+            // Modified car_data fetch based on session status
+            `/car_data?session_key=${sessionKey}${
+                isSessionLive
+                    ? `&date=>=${new Date(Date.now() - 60 * 1000).toISOString().slice(0, -5) + '+00:00'}` // Use current time - 1 minute if live
+                    : currentSessionDetails?.date_end
+                        ? `&date=>=${new Date(new Date(currentSessionDetails.date_end).getTime() - 60 * 1000).toISOString().slice(0, -5) + '+00:00'}` // Use session end - 1 minute if not live
+                        : '' // No date filter if no end date
+            }`,
+            `/stints?session_key=${sessionKey}`, // Stints endpoint remains unchanged
             `/intervals?session_key=${sessionKey}`,
             `/track_status?session_key=${sessionKey}`
         ];
