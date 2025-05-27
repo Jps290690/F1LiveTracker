@@ -511,13 +511,13 @@ function renderTableDOM(drivers) {
             </div>`;
 
         row.cells[5].innerHTML = `<span class="${driver.pos_change.class}">${driver.pos_change.text}</span>`;
- row.cells[6].innerHTML = `
- <span class="gap-interval">${driver.gap.interval}</span>
- ${driver.gap.lapDiff ? `<span class="gap-lap-diff">${driver.gap.lapDiff}</span>` : ''}
- `;
- row.cells[7].innerHTML = `<span class="lap-time-main">${driver.last_lap_str}</span>
- <span class="lap-time-personal-best">${driver.personal_best_str}</span>`;
-    });
+        row.cells[6].innerHTML = `
+        <span class="gap-interval">${driver.gap.interval}</span>
+        <span class="gap-lap-diff">${driver.gap.lapDiff ? driver.gap.lapDiff : ''}</span>
+        `;
+        row.cells[7].innerHTML = `<span class="lap-time-main">${driver.last_lap_str}</span>
+        <span class="lap-time-personal-best">${driver.personal_best_str}</span>`;
+            });
 }
 
 async function mainLoop() {
