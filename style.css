@@ -255,17 +255,15 @@ main {
 
 
 .pos-up {
-    color: #00ff00;
-    font-weight: bold;
+    color: green;
 }
 
 .pos-down {
-    color: #ff0000;
-    font-weight: bold;
+    color: red;
 }
 
 .pos-no-change {
-    color: #f0f0f0;
+    color: grey;
 }
 
 .lap-time-main {
