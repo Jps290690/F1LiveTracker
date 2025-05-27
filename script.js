@@ -71,7 +71,6 @@ async function fetchAllDataForSession(sessionKey) {
             `/position?session_key=${sessionKey}`,
             `/drivers?session_key=${sessionKey}`,
             `/laps?session_key=${sessionKey}`,
-            //`/car_data?session_key=${sessionKey}`,
             // Modified car_data fetch based on session status
             `/car_data?session_key=${sessionKey}${
                 isSessionLive
