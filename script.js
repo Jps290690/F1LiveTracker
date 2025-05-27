@@ -107,8 +107,8 @@ async function fetchAllDataForSession(sessionKey) {
         //    .catch(() => { console.warn(`Fetch failed for car_data for driver ${driverNumber}`); return []; })
         //);
 
-        const allCarDataResponses = await Promise.all(carDataPromises);
-        const combinedCarData = allCarDataResponses.flat(); // Combine data from all driver calls
+        // const allCarDataResponses = await Promise.all(carDataPromises); // Commented out: Promise.all call including carDataPromises
+        // const combinedCarData = allCarDataResponses.flat(); // Commented out: combining car data responses
 
         return {
             positions: positions,
