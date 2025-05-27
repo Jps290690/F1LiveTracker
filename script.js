@@ -15,7 +15,7 @@ const countryFlagImgEl = document.getElementById('country-flag');
 let currentSessionId = null;
 let currentMeetingDetails = null;
 let currentSessionDetails = null;
-let isSessionLive = false;
+let isSessionLive = true; // Assume live initially
 let mainIntervalId = null;
 let totalLapsForSession = null; // Variable to store total laps from config
 let imagePathsConfig = null;
@@ -231,13 +231,6 @@ function processAndBuildDisplayData(apiData) {
             }
         }
 
-        // Initialize first and last known positions if not already present
- if (!oldEntry.firstKnownPosition) {
- oldEntry.firstKnownPosition = oldEntry.positionData?.position;
- }
- if (oldEntry.positionData?.position !== undefined) {
- oldEntry.lastKnownPosition = oldEntry.positionData?.position;
- }
     });
 
  // If session is not a race, clear lap diffs and set status for non-active drivers
@@ -278,6 +271,12 @@ function processAndBuildDisplayData(apiData) {
                 (entry.status === 'OUT' ? (lastKnownRenderedPositions[entry.driverDetail.driver_number]?.lap_number_for_dnf || '-') : 0)
         };
 
+        // Store first known position if not already stored in the driverDataStore entry
+        const driverEntryInStore = driverDataStore.get(displayDriver.driver_number);
+        if (driverEntryInStore && driverEntryInStore.firstKnownPosition === undefined && displayDriver.position !== undefined) {
+            driverEntryInStore.firstKnownPosition = displayDriver.position;
+        }
+
         // DRS
         displayDriver.drs = { status: '---', class: 'drs-disabled' };
         if (displayDriver.status === 'ACTIVE' && entry.carData?.drs !== undefined) {
@@ -289,28 +288,15 @@ function processAndBuildDisplayData(apiData) {
             displayDriver.drs = { status: 'N/A', class: '' };
     }
 
- // INFO Column - Position Change Logic
- displayDriver.info = { text: '', class: '' }; // Initialize info field
- const driverEntryInStore = driverDataStore.get(displayDriver.driver_number);
- // Display First and Last Positions in INFO column
- if (driverEntryInStore && driverEntryInStore.firstKnownPosition !== undefined) {
-            displayDriver.info.text = `First: ${driverEntryInStore.firstKnownPosition}, Last: ${displayDriver.position !== undefined ? displayDriver.position : '-'}`;
- } else if (displayDriver.position !== undefined) {
-            displayDriver.info.text = `Last: ${displayDriver.position}`;
- } else {
-            displayDriver.info.text = '-';
- }
- // The position change calculation logic remains, but isn't used for display in this column.
+        // INFO Column - Position Change or First/Last Position
+ displayDriver.info = { text: '', class: '' }; // Initialize info field for display
+
+ // The original position change logic is still here but won't be displayed in INFO unless we decide to switch back.
  if (driverEntryInStore && driverEntryInStore.firstKnownPosition !== undefined && displayDriver.position !== undefined) {
  const firstPos = driverEntryInStore.firstKnownPosition;
  const currentPos = displayDriver.position;
  const posDiff = firstPos - currentPos;
 
- if (posDiff > 0) {
- displayDriver.info = { text: `+${posDiff}`, class: 'info-up' };
- } else if (posDiff < 0) {
- displayDriver.info = { text: `${posDiff}`, class: 'info-down' };
- }
  }
 
     // Tyres & Pits
@@ -543,7 +529,12 @@ function renderTableDOM(drivers) {
             </div>`;
 
         row.cells[5].innerHTML = `<span class="${driver.pos_change.class}">${driver.pos_change.text}</span>`;
- row.cells[6].innerHTML = `
+
+ // INFO column: Display First and Last Positions
+        const driverEntryInStore = driverDataStore.get(driver.driver_number);
+        row.cells[5].innerHTML = `First: ${driverEntryInStore?.firstKnownPosition !== undefined ? driverEntryInStore.firstKnownPosition : '-'}, Last: ${driver.position !== undefined ? driver.position : '-'}`;
+
+        row.cells[6].innerHTML = `
             ${driver.gap.interval ? `<span class="gap-interval">${driver.gap.interval}</span>` : ''}
  <span class="gap-main">${driver.gap.main}</span>
             ${driver.gap.lapDiff ? `<span class="gap-secondary-info">${driver.gap.lapDiff}</span>` : ''}
