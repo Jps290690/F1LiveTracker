@@ -74,7 +74,7 @@ async function fetchAllDataForSession(sessionKey) {
             `/position?session_key=${sessionKey}`,
             `/drivers?session_key=${sessionKey}`,
             `/laps?session_key=${sessionKey}`,
-            `/car_data?session_key=${sessionKey}`,
+            // `/car_data?session_key=${sessionKey}`, // Commented out: initial all car_data fetch
             `/stints?session_key=${sessionKey}`,
             `/intervals?session_key=${sessionKey}`,
             `/track_status?session_key=${sessionKey}`
@@ -87,24 +87,25 @@ async function fetchAllDataForSession(sessionKey) {
             )
         );
 
-        const [positions, driverDetails, allLaps, initialCarData, stints, intervals, trackStatus] = baseResponses;
+        // Adjusted destructuring to match the remaining endpoints
+        const [positions, driverDetails, allLaps, stints, intervals, trackStatus] = baseResponses;
 
         // Extract active driver numbers from the position data
-        const activeDriverNumbers = Array.from(new Set(positions.map(p => p.driver_number)));
+        // const activeDriverNumbers = Array.from(new Set(positions.map(p => p.driver_number))); // Commented out: related to individual car_data fetches
 
         // Calculate timestamp for one minute ago in the required format
-        const oneMinuteAgo = new Date(Date.now() - 60000);
+        // const oneMinuteAgo = new Date(Date.now() - 60000); // Commented out: related to individual car_data fetches
         // Format as "YYYY-MM-DDTHH:mm:ss.SSSSSS+00:00"
         // Note: JavaScript's toISOString includes milliseconds but usually not microseconds (the extra 3 digits)
         // We'll use toISOString and append '000+00:00' for the microseconds and timezone offset as per example.
-        const dateFrom = oneMinuteAgo.toISOString().slice(0, -1) + '000+00:00';
+        // const dateFrom = oneMinuteAgo.toISOString().slice(0, -1) + '000+00:00'; // Commented out: related to individual car_data fetches
 
         // Fetch car data for each active driver individually
-        const carDataPromises = activeDriverNumbers.map(driverNumber => {
-            return fetch(`${API_BASE_URL}/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date_from=${dateFrom}`)
-            .then(res => res.ok ? res.json() : Promise.resolve([]))
-            .catch(() => { console.warn(`Fetch failed for car_data for driver ${driverNumber}`); return []; })
-        );
+        // const carDataPromises = activeDriverNumbers.map(driverNumber => { // Commented out: individual car_data fetches
+        //     return fetch(`${API_BASE_URL}/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date_from=${dateFrom}`)
+        //     .then(res => res.ok ? res.json() : Promise.resolve([]))
+        //    .catch(() => { console.warn(`Fetch failed for car_data for driver ${driverNumber}`); return []; })
+        //);
 
         const allCarDataResponses = await Promise.all(carDataPromises);
         const combinedCarData = allCarDataResponses.flat(); // Combine data from all driver calls
@@ -113,8 +114,8 @@ async function fetchAllDataForSession(sessionKey) {
             positions: positions,
             driverDetails: driverDetails,
             allLaps: allLaps,
-            carData: combinedCarData,
-            stints: stints,
+            carData: [], // Provide an empty array for carData since it's not being fetched
+            stints: stints, // Corrected variable name
             intervals: intervals,
             trackStatus: trackStatus,
         };
@@ -173,7 +174,8 @@ function processAndBuildDisplayData(apiData) {
             }
         });
     };
-   associateData(apiData.carData, 'carData'); // Use the combined car data here
+   // associateData(apiData.carData, 'carData'); // Commented out: processing of car data
+
 
     // For stints, ensure we get the one with the highest stint_number or lap_start for each driver
     const latestStints = new Map();
