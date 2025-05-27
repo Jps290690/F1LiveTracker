@@ -28,7 +28,7 @@ function formatTime(value, includeSignIfPositive = false) {
     if (value === null || value === undefined) return '--:--:--';
 
     if (typeof value === 'string') {
-        if (value.toUpperCase().includes('LAP') || isNaN(parseFloat(value))) {
+        if (value.toUpperCase().includes('LAP') || isNaN(parseFloat(value)))
             return value;
         value = parseFloat(value);
     }
@@ -174,8 +174,8 @@ function processAndBuildDisplayData(apiData) {
         activeDriversFromApi.add(pos.driver_number);
         let entry = newDriverDataStore.get(pos.driver_number);
         if (!entry) {
-            entry = { driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` }, status: 'ACTIVE', allLapsForSession: [], personalBestLapTime: null, totalLapsCompleted: 0, lastSeenActiveTimestamp: Date.now() };
-            newDriverDataStore.set(pos.driver_number, entry);
+            // If a driver appears in position data but not driverDetails, create a minimal entry
+ entry = { driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` }, status: 'ACTIVE', allLapsForSession: [], personalBestLapTime: null, totalLapsCompleted: 0, lastSeenActiveTimestamp: Date.now(), positionData: null, stintData: null, intervalData: null }; newDriverDataStore.set(pos.driver_number, entry);
         }
         // Only update position if new data is more recent or entry has no position data yet
         if (!entry.positionData || (pos.date && new Date(pos.date) >= new Date(entry.positionData.date || 0))) {
@@ -188,7 +188,7 @@ function processAndBuildDisplayData(apiData) {
     driverDataStore.forEach((oldEntry, driverNum) => {
         const newEntry = newDriverDataStore.get(driverNum);
 
-        // Check for OUT status based on stints and lap difference to leader (if race session)
+        // Determine OUT status based on stints and lap difference to leader (if race session)
         const leaderEntry = Array.from(newDriverDataStore.values()).find(entry => entry.positionData?.position === 1);
         const leaderTotalLaps = leaderEntry?.totalLapsCompleted || 0;
         const driverTotalLaps = oldEntry.totalLapsCompleted || 0;
@@ -199,6 +199,8 @@ function processAndBuildDisplayData(apiData) {
                 oldEntry.status = 'OUT';
                 newDriverDataStore.set(driverNum, oldEntry);
                 return; // Driver is OUT, no need for other checks
+            } else {
+                // If stint_end suggests they are still in or just finished, check against last seen timestamp
             }
         }
 
@@ -306,14 +308,14 @@ function processAndBuildDisplayData(apiData) {
 
         // GAP LOGIC (Updated to use total laps)
         displayDriver.gap = { main: '--', secondary: '' };
-        if (displayDriver.status === 'OUT' && displayDriver.position !== 1) { // P1 can also be OUT at the end of the race, but won't have a gap
+        if (displayDriver.status === 'OUT' && entry.positionData?.position !== 1) { // P1 can also be OUT at the end of the race, but won't have a gap
             displayDriver.gap.main = 'OUT';
-        } else if (displayDriver.position === 1) {
+        } else if (entry.positionData?.position === 1) {
             displayDriver.gap.main = '';
             currentGlobalLapsDownContext = ""; // Reset for P1
         } else {
             const leaderEntry = displayArray.find(d => d.position === 1);
-            const leaderTotalLaps = leaderEntry?.current_lap_number || 0; // Use current_lap_number from displayDriver for leader
+            const leaderTotalLaps = leaderEntry?.current_lap_number || 0; // Use current_lap_number from displayDriver for leader. This is okay here as displayArray for P1 is already processed.
             const driverTotalLaps = entry.totalLapsCompleted || 0; // Use totalLapsCompleted from driverDataStore
             const lapDifference = leaderTotalLaps - driverTotalLaps; // Difference in completed laps
 
@@ -322,14 +324,21 @@ function processAndBuildDisplayData(apiData) {
 
             if (lapDifference > 0) {
                 // Driver is N laps down
-                displayDriver.gap.main = `+${lapDifference} Lap${lapDifference > 1 ? 's' : ''}`;
-                currentGlobalLapsDownContext = displayDriver.gap.main; // Update context
-                // If there's an interval to the car ahead on the same lap, show it as secondary
+                const lapsDownText = `+${lapDifference} Lap${lapDifference > 1 ? 's' : ''}`;
+                // If the interval to the car ahead is ALSO laps down, show it as main
+                if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && typeof intervalToAheadVal === 'string' && intervalToAheadVal.toUpperCase().includes('LAP')) {
+                     displayDriver.gap.main = intervalToAheadVal;
+                     displayDriver.gap.secondary = lapsDownText; // Show total laps down as secondary
+                     currentGlobalLapsDownContext = lapsDownText; // Update context with total laps down
+                } else {
+                    displayDriver.gap.main = lapsDownText; // Total laps down is the main gap
+                    currentGlobalLapsDownContext = lapsDownText; // Update context
+                }
+               // If there's an interval to the car ahead on the SAME lap (after being lapped), show it as secondary
                 if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && !isNaN(parseFloat(intervalToAheadVal))) {
-                    displayDriver.gap.secondary = formatTime(parseFloat(intervalToAheadVal), true);
+                    displayDriver.gap.secondary = formatTime(parseFloat(intervalToAheadVal), true); // This will overwrite the laps down if the car ahead is on the same lap
                 }
             } else if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && !isNaN(parseFloat(intervalToAheadVal))) {
-                // Driver is on the same lap, show interval to car ahead
                 // If a global laps down context exists from a previous driver (meaning cars ahead are also lapped), show it as secondary
                 displayDriver.gap.main = formatTime(parseFloat(intervalToAheadVal), true);
                 if (currentGlobalLapsDownContext) {
@@ -340,7 +349,7 @@ function processAndBuildDisplayData(apiData) {
                 displayDriver.gap.main = formatTime(parseFloat(gapToLeaderVal), true);
             }
         }
-        // Ensure P1 always clears the context if it was somehow set by other means
+        // Ensure P1 always clears the context regardless
         if (displayDriver.position === 1) currentGlobalLapsDownContext = "";
 
 
@@ -575,4 +584,3 @@ document.addEventListener('DOMContentLoaded', init);
 window.addEventListener('beforeunload', () => {
     if (mainIntervalId) clearInterval(mainIntervalId);
 });
-}
