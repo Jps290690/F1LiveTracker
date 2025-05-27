@@ -130,6 +130,10 @@ function processAndBuildDisplayData(apiData) {
         if (lap.lap_number > entry.totalLapsCompleted) {
             entry.totalLapsCompleted = lap.lap_number;
         }
+        // Also update current_lap_number here to reflect the latest lap data
+        if (!entry.lapData || (lap.date && new Date(lap.date) >= new Date(entry.lapData.date || 0))) {
+             entry.lapData = lap;
+        }
     });
 
     newDriverDataStore.forEach(entry => {
@@ -306,6 +310,22 @@ function processAndBuildDisplayData(apiData) {
             };
         }
 
+        // LAP DIFFERENCE CALCULATION
+        // Find the leader's total completed laps from the processed displayArray
+        // Note: This assumes P1 is correctly sorted to appear first or is found reliably.
+        const leaderEntry = displayArray.find(d => d.position === 1);
+        const leaderTotalLaps = leaderEntry?.current_lap_number || 0; // Use current_lap_number from displayDriver for leader
+        const driverTotalLaps = entry.totalLapsCompleted || 0; // Use totalLapsCompleted from driverDataStore
+
+        // Calculate the difference. If driver is ahead or on the same lap, diff is 0 or negative.
+        const lapDifference = leaderTotalLaps - driverTotalLaps;
+
+        if (displayDriver.status === 'OUT') {
+            displayDriver.lap_difference = '-'; // Or you could show the last known difference: `+${lapDifference}`
+        } else if (lapDifference > 0) {
+            displayDriver.lap_difference = `+${lapDifference}`;
+        }
+
         // GAP LOGIC (Updated to use total laps)
         displayDriver.gap = { main: '--', secondary: '' };
         if (displayDriver.status === 'OUT' && entry.positionData?.position !== 1) { // P1 can also be OUT at the end of the race, but won't have a gap
@@ -444,6 +464,14 @@ function renderTableDOM(drivers) {
     const tbody = standingsTableBodyEl;
     tbody.innerHTML = '';
 
+    // Update table header
+    const theadRow = document.querySelector('#standings-table thead tr');
+    if (theadRow && !theadRow.querySelector('th.lap-diff-header')) {
+        const lapDiffHeader = document.createElement('th');
+        lapDiffHeader.textContent = 'Lap Diff';
+ theadRow.insertBefore(lapDiffHeader, theadRow.children[6]); // Insert before GAP header
+    }
+
     if (drivers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8">No hay datos de pilotos para esta sesión.</td></tr>`;
         return;
@@ -455,7 +483,7 @@ function renderTableDOM(drivers) {
         row.className = driver.status === 'OUT' ? 'status-out' : '';
         row.style.borderLeft = `5px solid #${driver.team_colour || '333'}`;
 
-        for (let i = 0; i < 8; i++) row.insertCell();
+ for (let i = 0; i < 9; i++) row.insertCell(); // Increased cell count for the new column
 
         row.cells[0].innerHTML = `<span>${driver.position !== undefined ? driver.position : (driver.status === 'OUT' ? 'OUT' : '--')}</span>`;
         row.cells[1].textContent = driver.driver_number;
@@ -476,9 +504,10 @@ function renderTableDOM(drivers) {
             </div>`;
 
         row.cells[5].innerHTML = `<span class="${driver.pos_change.class}">${driver.pos_change.text}</span>`;
-        row.cells[6].innerHTML = `<span class="gap-main">${driver.gap.main}</span>
+ row.cells[6].textContent = driver.lap_difference !== undefined ? driver.lap_difference : '-'; // New cell for Lap Diff
+ row.cells[7].innerHTML = `<span class="gap-main">${driver.gap.main}</span>
                                 ${driver.gap.secondary ? `<span class="gap-secondary-info">${driver.gap.secondary}</span>` : ''}`;
-        row.cells[7].innerHTML = `<span class="lap-time-main">${driver.last_lap_str}</span>
+ row.cells[8].innerHTML = `<span class="lap-time-main">${driver.last_lap_str}</span>
                                  <span class="lap-time-personal-best">${driver.personal_best_str}</span>`;
     });
 }
