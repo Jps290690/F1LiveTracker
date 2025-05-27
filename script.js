@@ -105,11 +105,11 @@ async function fetchAllDataForSession(sessionKey) {
         return {
             positions: positions,
             driverDetails: driverDetails,
-            allLaps: responses[2],
-            carData: responses[3],
-            stints: responses[4],
-            intervals: responses[5],
-            trackStatus: responses[6],
+            allLaps: allLaps,
+            carData: combinedCarData,
+            stints: stints,
+            intervals: intervals,
+            trackStatus: trackStatus,
         };
     } catch (error) {
         console.error('Error fetching all data:', error);
