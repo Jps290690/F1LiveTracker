@@ -92,9 +92,16 @@ async function fetchAllDataForSession(sessionKey) {
         // Extract active driver numbers from the position data
         const activeDriverNumbers = Array.from(new Set(positions.map(p => p.driver_number)));
 
+        // Calculate timestamp for one minute ago in the required format
+        const oneMinuteAgo = new Date(Date.now() - 60000);
+        // Format as "YYYY-MM-DDTHH:mm:ss.SSSSSS+00:00"
+        // Note: JavaScript's toISOString includes milliseconds but usually not microseconds (the extra 3 digits)
+        // We'll use toISOString and append '000+00:00' for the microseconds and timezone offset as per example.
+        const dateFrom = oneMinuteAgo.toISOString().slice(0, -1) + '000+00:00';
+
         // Fetch car data for each active driver individually
-        const carDataPromises = activeDriverNumbers.map(driverNumber =>
-            fetch(`${API_BASE_URL}/car_data?session_key=${sessionKey}&driver_number=${driverNumber}`)
+        const carDataPromises = activeDriverNumbers.map(driverNumber => {
+            return fetch(`${API_BASE_URL}/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date_from=${dateFrom}`)
             .then(res => res.ok ? res.json() : Promise.resolve([]))
             .catch(() => { console.warn(`Fetch failed for car_data for driver ${driverNumber}`); return []; })
         );
