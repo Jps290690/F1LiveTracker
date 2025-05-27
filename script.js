@@ -23,7 +23,6 @@ let imagePathsConfig = null;
 let driverDataStore = new Map();
 let lastKnownRenderedPositions = {};
 let activeDriversFromApi = new Set();
-let initialDriverPositions = {}; //
 
 function formatTime(value, includeSignIfPositive = false) {
     if (value === null || value === undefined) return '--:--:--';
@@ -181,31 +180,6 @@ function processAndBuildDisplayData(apiData) {
         entry.lastSeenActiveTimestamp = Date.now();
     });
 
-    // Store initial position if not already recorded
-    if (initialDriverPositions[pos.driver_number] === undefined) {
-        initialDriverPositions[pos.driver_number] = pos.position;
-    }
-
-    // Calculate position change
-    let posChange = '-';
-    let posChangeClass = 'pos-no-change';
-    const initialPos = initialDriverPositions[pos.driver_number];
-    const currentPos = pos.position;
-
-    if (initialPos !== undefined && currentPos !== undefined) {
-        const diff = initialPos - currentPos;
-        if (diff > 0) {
-            posChange = `+${diff}`;
-            posChangeClass = 'pos-up';
-        } else if (diff < 0) {
-            posChange = `${diff}`; // The negative sign is already there
-            posChangeClass = 'pos-down';
-        }
-    }
-
-    // Add position change info to the entry
-    entry.positionChange = { text: posChange, class: posChangeClass };
-
     driverDataStore.forEach((oldEntry, driverNum) => {
         const newEntry = newDriverDataStore.get(driverNum);
         if (oldEntry.status === 'ACTIVE' && (!newEntry || newEntry.status !== 'ACTIVE')) {
@@ -259,8 +233,7 @@ function processAndBuildDisplayData(apiData) {
             team_colour: entry.driverDetail.team_colour || '333333',
             status: entry.status,
             current_lap_number: entry.lapData?.lap_number ||
-                (entry.status === 'OUT' ? (lastKnownRenderedPositions[entry.driverDetail.driver_number]?.lap_number_for_dnf || '-') : 0),
-            positionChange: entry.positionChange
+                (entry.status === 'OUT' ? (lastKnownRenderedPositions[entry.driverDetail.driver_number]?.lap_number_for_dnf || '-') : 0)
         };
 
         // DRS
@@ -480,7 +453,7 @@ function renderTableDOM(drivers) {
                 </div>
             </div>`;
 
-        row.cells[5].innerHTML = `<span class=\"${driver.positionChange.class}\">${driver.positionChange.text}</span>`;
+        row.cells[5].innerHTML = `<span class="${driver.pos_change.class}">${driver.pos_change.text}</span>`;
         row.cells[6].innerHTML = `<span class="gap-main">${driver.gap.main}</span>
                                 ${driver.gap.secondary ? `<span class="gap-secondary-info">${driver.gap.secondary}</span>` : ''}`;
         row.cells[7].innerHTML = `<span class="lap-time-main">${driver.last_lap_str}</span>
