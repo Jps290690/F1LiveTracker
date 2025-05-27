@@ -132,7 +132,7 @@ function processAndBuildDisplayData(apiData) {
         }
         // Also update current_lap_number here to reflect the latest lap data
         if (!entry.lapData || (lap.date && new Date(lap.date) >= new Date(entry.lapData.date || 0))) {
-             entry.lapData = lap;
+            entry.lapData = lap;
         }
     });
 
@@ -179,7 +179,7 @@ function processAndBuildDisplayData(apiData) {
         let entry = newDriverDataStore.get(pos.driver_number);
         if (!entry) {
             // If a driver appears in position data but not driverDetails, create a minimal entry
- entry = { driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` }, status: 'ACTIVE', allLapsForSession: [], personalBestLapTime: null, totalLapsCompleted: 0, lastSeenActiveTimestamp: Date.now(), positionData: null, stintData: null, intervalData: null }; newDriverDataStore.set(pos.driver_number, entry);
+            entry = { driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` }, status: 'ACTIVE', allLapsForSession: [], personalBestLapTime: null, totalLapsCompleted: 0, lastSeenActiveTimestamp: Date.now(), positionData: null, stintData: null, intervalData: null }; newDriverDataStore.set(pos.driver_number, entry);
         }
         // Only update position if new data is more recent or entry has no position data yet
         if (!entry.positionData || (pos.date && new Date(pos.date) >= new Date(entry.positionData.date || 0))) {
@@ -187,6 +187,23 @@ function processAndBuildDisplayData(apiData) {
         }
         entry.status = 'ACTIVE';
         entry.lastSeenActiveTimestamp = Date.now();
+    });
+
+    // Nuevo bloque para calcular el cambio entre la primera y la última posición registrada por piloto
+    const positionHistoryMap = new Map();
+    apiData.positions.forEach(pos => {
+        const driverNum = pos.driver_number;
+        if (!positionHistoryMap.has(driverNum)) {
+            positionHistoryMap.set(driverNum, { first: pos.position, last: pos.position });
+        } else {
+            const existing = positionHistoryMap.get(driverNum);
+            if (new Date(pos.date) < new Date(driverDataStore.get(driverNum)?.firstPositionDate || Infinity)) {
+                existing.first = pos.position;
+            }
+            if (new Date(pos.date) > new Date(driverDataStore.get(driverNum)?.lastPositionDate || 0)) {
+                existing.last = pos.position;
+            }
+        }
     });
 
     driverDataStore.forEach((oldEntry, driverNum) => {
@@ -233,12 +250,12 @@ function processAndBuildDisplayData(apiData) {
 
     });
 
- // If session is not a race, clear lap diffs and set status for non-active drivers
- if (currentSessionDetails?.session_type !== 'Race') {
- driverDataStore.forEach(entry => {
- if (entry.status !== 'ACTIVE') entry.status = 'UNKNOWN'; // Or appropriate non-race status
- });
- }
+    // If session is not a race, clear lap diffs and set status for non-active drivers
+    if (currentSessionDetails?.session_type !== 'Race') {
+        driverDataStore.forEach(entry => {
+            if (entry.status !== 'ACTIVE') entry.status = 'UNKNOWN'; // Or appropriate non-race status
+        });
+    }
 
     driverDataStore = newDriverDataStore;
 
@@ -286,20 +303,25 @@ function processAndBuildDisplayData(apiData) {
             else displayDriver.drs = { status: 'OFF', class: 'drs-disabled' };
         } else if (displayDriver.status === 'OUT') {
             displayDriver.drs = { status: 'N/A', class: '' };
-    }
+        }
+        
+        // Position Change Info
+        const posHistory = positionHistoryMap.get(displayDriver.driver_number);
+        if (posHistory && posHistory.first !== undefined && posHistory.last !== undefined) {
+            const diff = posHistory.first - posHistory.last;
+            if (diff > 0) {
+                displayDriver.info = { text: `▲${diff}`, class: 'pos-up' };
+            } else if (diff < 0) {
+                displayDriver.info = { text: `▼${Math.abs(diff)}`, class: 'pos-down' };
+            } else {
+                displayDriver.info = { text: '—', class: 'pos-no-change' };
+            }
+        } else {
+            displayDriver.info = { text: 'N/A', class: '' };
+        }
 
-        // INFO Column - Position Change or First/Last Position
- displayDriver.info = { text: '', class: '' }; // Initialize info field for display
 
- // The original position change logic is still here but won't be displayed in INFO unless we decide to switch back.
- if (driverEntryInStore && driverEntryInStore.firstKnownPosition !== undefined && displayDriver.position !== undefined) {
- const firstPos = driverEntryInStore.firstKnownPosition;
- const currentPos = displayDriver.position;
- const posDiff = firstPos - currentPos;
-
- }
-
-    // Tyres & Pits
+        // Tyres & Pits
         displayDriver.compound = 'N/A';
         displayDriver.laps_on_current_set = '--';
         displayDriver.pit_stop_count = '-';
@@ -337,14 +359,14 @@ function processAndBuildDisplayData(apiData) {
         }
 
         // LAP DIFFERENCE CALCULATION
- // For lap difference calculation, we need the true total laps completed by the leader
- // from the full `driverDataStore`, as `displayArray` is built sequentially.
- const leaderEntryInStore = Array.from(driverDataStore.values()).find(e => e.positionData?.position === 1);
- const leaderTotalCompletedLaps = leaderEntryInStore?.totalLapsCompleted || 0;
- const driverTotalCompletedLaps = entry.totalLapsCompleted || 0;
+        // For lap difference calculation, we need the true total laps completed by the leader
+        // from the full `driverDataStore`, as `displayArray` is built sequentially.
+        const leaderEntryInStore = Array.from(driverDataStore.values()).find(e => e.positionData?.position === 1);
+        const leaderTotalCompletedLaps = leaderEntryInStore?.totalLapsCompleted || 0;
+        const driverTotalCompletedLaps = entry.totalLapsCompleted || 0;
 
- // Calculate the difference in completed laps. A positive value means the driver is laps down.
- const lapDifference = leaderTotalCompletedLaps - driverTotalCompletedLaps;
+        // Calculate the difference in completed laps. A positive value means the driver is laps down.
+        const lapDifference = leaderTotalCompletedLaps - driverTotalCompletedLaps;
 
         if (displayDriver.status === 'OUT') {
             displayDriver.lap_difference = '-'; // Or you could show the last known difference: `+${lapDifference}`
@@ -353,53 +375,53 @@ function processAndBuildDisplayData(apiData) {
         }
 
         // GAP LOGIC (Updated to use total laps)
- displayDriver.gap = { main: '--', secondary: '', lapDiff: '' };
+        displayDriver.gap = { main: '--', secondary: '', lapDiff: '' };
         if (displayDriver.status === 'OUT' && entry.positionData?.position !== 1) { // P1 can also be OUT at the end of the race, but won't have a gap
- displayDriver.gap.interval = 'OUT';
+            displayDriver.gap.interval = 'OUT';
         } else if (entry.positionData?.position === 1) {
- displayDriver.gap.interval = ''; // P1 has no interval or gap to leader
- currentGlobalLapsDownContext = ""; // Reset context for P1
+            displayDriver.gap.interval = ''; // P1 has no interval or gap to leader
+            currentGlobalLapsDownContext = ""; // Reset context for P1
         } else {
             const gapToLeaderVal = entry.intervalData?.gap_to_leader;
             const intervalToAheadVal = entry.intervalData?.interval;
 
 
- // Determine the primary value for the GAP column
+            // Determine the primary value for the GAP column
             if (lapDifference > 0) {
                 // Driver is N laps down
- // If there's an interval value, that's the primary display
- if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && !isNaN(parseFloat(intervalToAheadVal))) {
- displayDriver.gap.main = formatTime(parseFloat(intervalToAheadVal), true);
+                // If there's an interval value, that's the primary display
+                if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && !isNaN(parseFloat(intervalToAheadVal))) {
+                    displayDriver.gap.main = formatTime(parseFloat(intervalToAheadVal), true);
                 } else if (gapToLeaderVal !== null && gapToLeaderVal !== undefined && !isNaN(parseFloat(gapToLeaderVal))) {
- // If no interval to ahead, show gap to leader (this should be rare when laps down)
- displayDriver.gap.main = formatTime(parseFloat(gapToLeaderVal), true);
+                    // If no interval to ahead, show gap to leader (this should be rare when laps down)
+                    displayDriver.gap.main = formatTime(parseFloat(gapToLeaderVal), true);
                 }
 
                 // If the interval to the car ahead is ALSO laps down, show it as main
                 if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && typeof intervalToAheadVal === 'string' && intervalToAheadVal.toUpperCase().includes('LAP')) {
- displayDriver.gap.main = intervalToAheadVal; // Show interval (e.g., +1 LAP) as main
+                    displayDriver.gap.main = intervalToAheadVal; // Show interval (e.g., +1 LAP) as main
                 }
 
                 // Always show the total lap difference below if the driver is laps down
                 displayDriver.gap.lapDiff = `+${lapDifference} Lap${lapDifference > 1 ? 's' : ''}`;
 
- } else if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && !isNaN(parseFloat(intervalToAheadVal))) {
- // Driver is on the same lap as the car ahead, show interval to ahead
- displayDriver.gap.main = formatTime(parseFloat(intervalToAheadVal), true);
+            } else if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && !isNaN(parseFloat(intervalToAheadVal))) {
+                // Driver is on the same lap as the car ahead, show interval to ahead
+                displayDriver.gap.main = formatTime(parseFloat(intervalToAheadVal), true);
             } else if (gapToLeaderVal !== null && gapToLeaderVal !== undefined && !isNaN(parseFloat(gapToLeaderVal))) {
                 // Fallback: If no interval to car ahead, show gap to leader
- displayDriver.gap.main = formatTime(parseFloat(gapToLeaderVal), true);
+                displayDriver.gap.main = formatTime(parseFloat(gapToLeaderVal), true);
             } else if (intervalToAheadVal !== null && intervalToAheadVal !== undefined && !isNaN(parseFloat(intervalToAheadVal))) { // This seems redundant based on the logic above
                 // If a global laps down context exists from a previous driver (meaning cars ahead are also lapped), show it as secondary
- // displayDriver.gap.main = formatTime(parseFloat(intervalToAheadVal), true); // This line seems incorrect here.
+                // displayDriver.gap.main = formatTime(parseFloat(intervalToAheadVal), true); // This line seems incorrect here.
                 if (currentGlobalLapsDownContext) {
                     displayDriver.gap.secondary = currentGlobalLapsDownContext;
                 }
             } else if (gapToLeaderVal !== null && gapToLeaderVal !== undefined && !isNaN(parseFloat(gapToLeaderVal))) {
                 // Fallback: If no interval to car ahead, show gap to leader
-            displayDriver.gap.interval = formatTime(parseFloat(gapToLeaderVal), true);
+                displayDriver.gap.interval = formatTime(parseFloat(gapToLeaderVal), true);
             }
- }
+        }
         // Ensure P1 always clears the context regardless
         if (displayDriver.position === 1) currentGlobalLapsDownContext = "";
 
@@ -495,7 +517,7 @@ function renderTableDOM(drivers) {
     const tbody = standingsTableBodyEl;
     tbody.innerHTML = '';
 
- // The lap diff is now integrated into the GAP column, no separate header needed
+    // The lap diff is now integrated into the GAP column, no separate header needed
 
     if (drivers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8">No hay datos de pilotos para esta sesión.</td></tr>`;
@@ -508,7 +530,7 @@ function renderTableDOM(drivers) {
         row.className = driver.status === 'OUT' ? 'status-out' : '';
         row.style.borderLeft = `5px solid #${driver.team_colour || '333'}`;
 
- for (let i = 0; i < 8; i++) row.insertCell(); // 8 cells for the standard columns
+        for (let i = 0; i < 8; i++) row.insertCell(); // 8 cells for the standard columns
 
         row.cells[0].innerHTML = `<span>${driver.position !== undefined ? driver.position : (driver.status === 'OUT' ? 'OUT' : '--')}</span>`;
         row.cells[1].textContent = driver.driver_number;
@@ -528,20 +550,15 @@ function renderTableDOM(drivers) {
                 </div>
             </div>`;
 
-        row.cells[5].innerHTML = `<span class="${driver.pos_change.class}">${driver.pos_change.text}</span>`;
-
- // INFO column: Display First and Last Positions
-        const driverEntryInStore = driverDataStore.get(driver.driver_number);
-        row.cells[5].innerHTML = `First: ${driverEntryInStore?.firstKnownPosition !== undefined ? driverEntryInStore.firstKnownPosition : '-'}, Last: ${driver.position !== undefined ? driver.position : '-'}`;
-
+        row.cells[5].innerHTML = `<span class="${driver.info.class}">${driver.info.text}</span>`;
         row.cells[6].innerHTML = `
             ${driver.gap.interval ? `<span class="gap-interval">${driver.gap.interval}</span>` : ''}
- <span class="gap-main">${driver.gap.main}</span>
+            <span class="gap-main">${driver.gap.main}</span>
             ${driver.gap.lapDiff ? `<span class="gap-secondary-info">${driver.gap.lapDiff}</span>` : ''}
         `;
         row.cells[7].innerHTML = `<span class="lap-time-main">${driver.last_lap_str}</span>
         <span class="lap-time-personal-best">${driver.personal_best_str}</span>`;
-            });
+    });
 }
 
 async function mainLoop() {

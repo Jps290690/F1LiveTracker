@@ -284,7 +284,9 @@ main {
 
 .gap-main {
     display: block;
-    font-size: 0.9em;
+    font-size: 0.7em;
+    color: #aaa;
+    margin-top: 1px;
     /* Reducido */
 }
 
