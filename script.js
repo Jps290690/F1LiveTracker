@@ -172,6 +172,7 @@ function processAndBuildDisplayData(apiData) {
         const entry = newDriverDataStore.get(driverNum);
         if (entry && stint.lap_end && totalLapsForSession && stint.lap_end === totalLapsForSession) {
             entry.status = 'OUT';
+            console.log(`Driver ${driverNum} status set to: ${entry.status}`);
             entry.outReason = 'Stint ended at last lap'; // info opcional para usar después
         }
     });
@@ -194,6 +195,7 @@ function processAndBuildDisplayData(apiData) {
             entry.positionData = pos;
         }
         entry.status = 'ACTIVE';
+        console.log(`Driver ${entry.driverDetail.driver_number} status set to: ${entry.status}`);
         entry.lastSeenActiveTimestamp = Date.now();
     });
 
@@ -213,13 +215,6 @@ function processAndBuildDisplayData(apiData) {
             }
         }
     });
-
-    // If session is not a race, clear lap diffs and set status for non-active drivers
-    if (currentSessionDetails?.session_type !== 'Race') {
-        driverDataStore.forEach(entry => {
-            if (entry.status !== 'ACTIVE') entry.status = 'UNKNOWN'; // Or appropriate non-race status
-        });
-    }
 
     driverDataStore = newDriverDataStore;
 
@@ -268,7 +263,7 @@ function processAndBuildDisplayData(apiData) {
         } else if (displayDriver.status === 'OUT') {
             displayDriver.drs = { status: 'N/A', class: '' };
         }
-        
+
         // Position Change Info
         const posHistory = positionHistoryMap.get(displayDriver.driver_number);
         displayDriver.info = { text: '', class: '', secondary: '' };
