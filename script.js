@@ -20,7 +20,7 @@ let mainIntervalId = null;
 let totalLapsForSession = null; // Variable to store total laps from config
 let imagePathsConfig = null;
 
-let driverDataStore = new Map(); // Will store objects like { driverDetail: {...}, positionHistory: [], initialPosition: null, ...otherdata }
+let driverDataStore = new Map();
 let lastKnownRenderedPositions = {};
 let activeDriversFromApi = new Set();
 let initialDriverPositions = {}; //
@@ -69,50 +69,30 @@ function getTyreImg(compound) {
 async function fetchAllDataForSession(sessionKey) {
     if (!sessionKey) return null;
     try {
-
         const endpoints = [
             `/position?session_key=${sessionKey}`,
             `/drivers?session_key=${sessionKey}`,
             `/laps?session_key=${sessionKey}`,
-            // `/car_data?session_key=${sessionKey}`, // Commented out: initial all car_data fetch
-            `/stints?session_key=${sessionKey}`, `/intervals?session_key=${sessionKey}`,
+            `/car_data?session_key=${sessionKey}`,
+            `/stints?session_key=${sessionKey}`,
+            `/intervals?session_key=${sessionKey}`,
             `/track_status?session_key=${sessionKey}`
         ];
-
-        const baseResponses = await Promise.all(
+        const responses = await Promise.all(
             endpoints.map(ep => fetch(`${API_BASE_URL}${ep}`)
                 .then(res => res.ok ? res.json() : Promise.resolve([]))
                 .catch(() => { console.warn(`Fetch failed for ${ep}`); return []; })
             )
         );
 
-        // Adjusted destructuring to match the remaining endpoints
-        const [positions, driverDetails, allLaps, stints, intervals, trackStatus] = baseResponses; // Corrected destructuring
-        // Extract active driver numbers from the position data
-        // const activeDriverNumbers = Array.from(new Set(positions.map(p => p.driver_number))); // Commented out: related to individual car_data fetches
-
-        // Calculate timestamp for one minute ago in the required format
-        // const oneMinuteAgo = new Date(Date.now() - 60000); // Commented out: related to individual car_data fetches
-        // Format as "YYYY-MM-DDTHH:mm:ss.SSSSSS+00:00"
-        // Note: JavaScript's toISOString includes milliseconds but usually not microseconds (the extra 3 digits)
-        // We'll use toISOString and append '000+00:00' for the microseconds and timezone offset as per example.
-        // const dateFrom = oneMinuteAgo.toISOString().slice(0, -1) + '000+00:00'; // Commented out: related to individual car_data fetches
-
-        // Fetch car data for each active driver individually
-        // const carDataPromises = activeDriverNumbers.map(driverNumber => { // Commented out: individual car_data fetches
-        //     return fetch(`${API_BASE_URL}/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date_from=${dateFrom}`)
-        //     .then(res => res.ok ? res.json() : Promise.resolve([]))
-        //    .catch(() => { console.warn(`Fetch failed for car_data for driver ${driverNumber}`); return []; })
-        //);
-
-        // const allCarDataResponses = await Promise.all(carDataPromises); // Commented out: Promise.all call including carDataPromises - THIS WAS THE CAUSE OF THE ERROR
-        // const combinedCarData = allCarDataResponses.flat(); // Commented out: combining car data responses
         return {
-            positions: positions,
-            driverDetails: driverDetails,
-            allLaps: allLaps,
-            intervals: intervals,
-            trackStatus: trackStatus,
+            positions: responses[0],
+            driverDetails: responses[1],
+            allLaps: responses[2],
+            carData: responses[3],
+            stints: responses[4],
+            intervals: responses[5],
+            trackStatus: responses[6],
         };
     } catch (error) {
         console.error('Error fetching all data:', error);
@@ -120,8 +100,8 @@ async function fetchAllDataForSession(sessionKey) {
     }
 }
 
-
 function processAndBuildDisplayData(apiData) {
+    if (!apiData) return [];
 
     const newDriverDataStore = new Map();
     activeDriversFromApi.clear();
@@ -169,8 +149,7 @@ function processAndBuildDisplayData(apiData) {
             }
         });
     };
-   // associateData(apiData.carData, 'carData'); // Commented out: processing of car data
-
+    associateData(apiData.carData, 'carData');
 
     // For stints, ensure we get the one with the highest stint_number or lap_start for each driver
     const latestStints = new Map();
@@ -190,62 +169,17 @@ function processAndBuildDisplayData(apiData) {
     apiData.positions.forEach(pos => {
         activeDriversFromApi.add(pos.driver_number);
         let entry = newDriverDataStore.get(pos.driver_number);
-
         if (!entry) {
-            // If this is a new driver entry, create it
-            entry = {
-                driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` },
-                status: 'ACTIVE',
-                allLapsForSession: [],
-                personalBestLapTime: null,
-                lastSeenActiveTimestamp: Date.now(),
-                initialPosition: pos.position, // <--- Store initial position here
-                positionHistory: [pos] // <--- Start position history
-            };
+            entry = { driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` }, status: 'ACTIVE', allLapsForSession: [], personalBestLapTime: null, lastSeenActiveTimestamp: Date.now() };
             newDriverDataStore.set(pos.driver_number, entry);
-        } else {
-            // If driver exists, update data
-            // Initialize positionHistory if it doesn't exist
-            if (!entry.positionHistory) { // <--- Add this check
-                entry.positionHistory = [];
-            }
-
-            // Only update position if new data is more recent
-           if (!entry.positionData || (pos.date && new Date(pos.date) >= new Date(entry.positionData.date || 0))) {
-                entry.positionData = pos;
-                entry.positionHistory.push(pos);
-                // Ensure history is sorted (might not be strictly necessary if API sends in order, but good practice)
-                entry.positionHistory.sort((a, b) => new Date(a.date) - new Date(b.date) || a.session_time - b.session_time);
-           }
-            // If initialPosition wasn't set (e.g., if driver appeared later), set it
-            if (entry.initialPosition === null || entry.initialPosition === undefined) {
-                 entry.initialPosition = pos.position;
-            }
-           entry.status = 'ACTIVE';
-           entry.lastSeenActiveTimestamp = Date.now();
-       }
-
-        // Calculate position change for ACTIVE drivers
-        let posChange = '-';
-        let posChangeClass = 'pos-no-change';
-        const initialPos = entry.initialPosition; // Use stored initial position
-        const currentPos = entry.positionData?.position; // Use the latest position
-
-        if (initialPos !== null && initialPos !== undefined && currentPos !== null && currentPos !== undefined) {
-            const diff = initialPos - currentPos;
-            if (diff > 0) {
-                posChange = `+${diff}`;
-                posChangeClass = 'pos-up';
-            } else if (diff < 0) {
-                posChange = `${diff}`; // Negative sign included
-                posChangeClass = 'pos-down';
-            }
         }
-        // Store position change directly in the entry
-        entry.positionChange = { text: posChange, class: posChangeClass };
-
-    }); // End of apiData.positions.forEach
-
+        // Only update position if new data is more recent or entry has no position data yet
+        if (!entry.positionData || (pos.date && new Date(pos.date) >= new Date(entry.positionData.date || 0))) {
+            entry.positionData = pos;
+        }
+        entry.status = 'ACTIVE';
+        entry.lastSeenActiveTimestamp = Date.now();
+    });
 
     // Store initial position if not already recorded
     if (initialDriverPositions[pos.driver_number] === undefined) {
@@ -287,34 +221,13 @@ function processAndBuildDisplayData(apiData) {
             }
         } else if (oldEntry.status === 'OUT') {
             if (!newEntry) {
-                // If no new entry, preserve old entry's data including position change
                 newDriverDataStore.set(driverNum, oldEntry);
             } else {
                 newEntry.status = 'OUT';
                 // Preserve essential data for OUT drivers if new entry is sparse
                 if (!newEntry.lapData && oldEntry.lapData) newEntry.lapData = oldEntry.lapData;
-                // Preserve the last known position data for calculating final position change
                 if (!newEntry.positionData && oldEntry.positionData) newEntry.positionData = oldEntry.positionData;
                 if (!newEntry.stintData && oldEntry.stintData) newEntry.stintData = oldEntry.stintData;
-
-                // Recalculate position change for OUT drivers based on last known active position
-                 let posChange = '-';
-                 let posChangeClass = 'pos-no-change';
-                 const initialPos = oldEntry.initialPosition; // Use initial position from old entry
-                 const lastKnownPos = oldEntry.positionData?.position; // Use last known position from old entry
-
-                if (initialPos !== null && initialPos !== undefined && lastKnownPos !== null && lastKnownPos !== undefined) {
-                    const diff = initialPos - lastKnownPos;
-                    if (diff > 0) {
-                        posChange = `+${diff}`;
-                        posChangeClass = 'pos-up';
-                    } else if (diff < 0) {
-                        posChange = `${diff}`;
-                        posChangeClass = 'pos-down';
-                    }
-                }
-                 // Store the position change in the new entry for the OUT driver
-                newEntry.positionChange = { text: posChange, class: posChangeClass };
             }
         }
     });
