@@ -20,7 +20,7 @@ let mainIntervalId = null;
 let totalLapsForSession = null; // Variable to store total laps from config
 let imagePathsConfig = null;
 
-let driverDataStore = new Map();
+let driverDataStore = new Map(); // Will store objects like { driverDetail: {...}, positionHistory: [], initialPosition: null, ...otherdata }
 let lastKnownRenderedPositions = {};
 let activeDriversFromApi = new Set();
 let initialDriverPositions = {}; //
@@ -100,6 +100,7 @@ async function fetchAllDataForSession(sessionKey) {
     }
 }
 
+
 function processAndBuildDisplayData(apiData) {
     if (!apiData) return [];
 
@@ -169,17 +170,57 @@ function processAndBuildDisplayData(apiData) {
     apiData.positions.forEach(pos => {
         activeDriversFromApi.add(pos.driver_number);
         let entry = newDriverDataStore.get(pos.driver_number);
+
         if (!entry) {
-            entry = { driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` }, status: 'ACTIVE', allLapsForSession: [], personalBestLapTime: null, lastSeenActiveTimestamp: Date.now() };
+            // If this is a new driver entry, create it
+            entry = {
+                driverDetail: { driver_number: pos.driver_number, full_name: `Driver ${pos.driver_number}` },
+                status: 'ACTIVE',
+                allLapsForSession: [],
+                personalBestLapTime: null,
+                lastSeenActiveTimestamp: Date.now(),
+                initialPosition: pos.position, // <--- Store initial position here
+                positionHistory: [pos] // <--- Start position history
+            };
             newDriverDataStore.set(pos.driver_number, entry);
+        } else {
+             // If driver exists, update data
+             // Only update position if new data is more recent
+            if (!entry.positionData || (pos.date && new Date(pos.date) >= new Date(entry.positionData.date || 0))) {
+                 entry.positionData = pos;
+                 entry.positionHistory.push(pos); // <--- Add to history
+                 // Ensure history is sorted (might not be strictly necessary if API sends in order, but good practice)
+                 entry.positionHistory.sort((a, b) => new Date(a.date) - new Date(b.date) || a.session_time - b.session_time);
+            }
+             // If initialPosition wasn't set (e.g., if driver appeared later), set it
+             if (entry.initialPosition === null || entry.initialPosition === undefined) {
+                  entry.initialPosition = pos.position;
+             }
+            entry.status = 'ACTIVE';
+            entry.lastSeenActiveTimestamp = Date.now();
         }
-        // Only update position if new data is more recent or entry has no position data yet
-        if (!entry.positionData || (pos.date && new Date(pos.date) >= new Date(entry.positionData.date || 0))) {
-            entry.positionData = pos;
+
+        // Calculate position change for ACTIVE drivers
+        let posChange = '-';
+        let posChangeClass = 'pos-no-change';
+        const initialPos = entry.initialPosition; // Use stored initial position
+        const currentPos = entry.positionData?.position; // Use the latest position
+
+        if (initialPos !== null && initialPos !== undefined && currentPos !== null && currentPos !== undefined) {
+            const diff = initialPos - currentPos;
+            if (diff > 0) {
+                posChange = `+${diff}`;
+                posChangeClass = 'pos-up';
+            } else if (diff < 0) {
+                posChange = `${diff}`; // Negative sign included
+                posChangeClass = 'pos-down';
+            }
         }
-        entry.status = 'ACTIVE';
-        entry.lastSeenActiveTimestamp = Date.now();
-    });
+        // Store position change directly in the entry
+        entry.positionChange = { text: posChange, class: posChangeClass };
+
+    }); // End of apiData.positions.forEach
+
 
     // Store initial position if not already recorded
     if (initialDriverPositions[pos.driver_number] === undefined) {
@@ -221,13 +262,34 @@ function processAndBuildDisplayData(apiData) {
             }
         } else if (oldEntry.status === 'OUT') {
             if (!newEntry) {
+                // If no new entry, preserve old entry's data including position change
                 newDriverDataStore.set(driverNum, oldEntry);
             } else {
                 newEntry.status = 'OUT';
                 // Preserve essential data for OUT drivers if new entry is sparse
                 if (!newEntry.lapData && oldEntry.lapData) newEntry.lapData = oldEntry.lapData;
+                // Preserve the last known position data for calculating final position change
                 if (!newEntry.positionData && oldEntry.positionData) newEntry.positionData = oldEntry.positionData;
                 if (!newEntry.stintData && oldEntry.stintData) newEntry.stintData = oldEntry.stintData;
+
+                // Recalculate position change for OUT drivers based on last known active position
+                 let posChange = '-';
+                 let posChangeClass = 'pos-no-change';
+                 const initialPos = oldEntry.initialPosition; // Use initial position from old entry
+                 const lastKnownPos = oldEntry.positionData?.position; // Use last known position from old entry
+
+                if (initialPos !== null && initialPos !== undefined && lastKnownPos !== null && lastKnownPos !== undefined) {
+                    const diff = initialPos - lastKnownPos;
+                    if (diff > 0) {
+                        posChange = `+${diff}`;
+                        posChangeClass = 'pos-up';
+                    } else if (diff < 0) {
+                        posChange = `${diff}`;
+                        posChangeClass = 'pos-down';
+                    }
+                }
+                 // Store the position change in the new entry for the OUT driver
+                newEntry.positionChange = { text: posChange, class: posChangeClass };
             }
         }
     });
