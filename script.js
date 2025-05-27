@@ -105,7 +105,7 @@ async function fetchAllDataForSession(sessionKey) {
             console.log("Using P1 lap start_date for car_data (already formatted):", p1LastLapStartDateForCarData);
         } else {
             // Fallback: tiempo actual - 1 minuto, formateado con la nueva función
-            const fallbackDate = new Date(Date.now() - 60 * 1000);
+            const fallbackDate = new Date(Date.now() - 60 * 1000 * 30);
             const formattedFallbackDate = formatDateForApi(fallbackDate);
             if (formattedFallbackDate) {
                 carDataDateParam = `&date=>=${formattedFallbackDate}`;
