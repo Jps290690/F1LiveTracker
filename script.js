@@ -214,50 +214,6 @@ function processAndBuildDisplayData(apiData) {
         }
     });
 
-    driverDataStore.forEach((oldEntry, driverNum) => {
-        const newEntry = newDriverDataStore.get(driverNum);
-
-        // Determine OUT status based on stints and lap difference to leader (if race session)
-        const leaderEntry = Array.from(newDriverDataStore.values()).find(entry => entry.positionData?.position === 1);
-        const leaderTotalLaps = leaderEntry?.totalLapsCompleted || 0;
-        const driverTotalLaps = oldEntry.totalLapsCompleted || 0;
-
-        if (currentSessionDetails?.session_type === 'Race' && oldEntry.stintData?.lap_end !== null && oldEntry.stintData?.lap_end !== undefined && oldEntry.stintData?.lap_end > 0) {
-            const lapsAfterLastStint = leaderTotalLaps - (oldEntry.stintData.lap_end + (leaderTotalLaps - driverTotalLaps));
-            if (lapsAfterLastStint > 0) {
-                oldEntry.status = 'OUT';
-                newDriverDataStore.set(driverNum, oldEntry);
-                return; // Driver is OUT, no need for other checks
-            } else {
-                // If stint_end suggests they are still in or just finished, check against last seen timestamp
-            }
-        }
-
-        if (oldEntry.status === 'ACTIVE' && (!newEntry || newEntry.status !== 'ACTIVE')) {
-            if (Date.now() - oldEntry.lastSeenActiveTimestamp > 15000) { // 15-second DNF timeout
-                oldEntry.status = 'OUT';
-                newDriverDataStore.set(driverNum, oldEntry);
-            } else {
-                if (newEntry) newEntry.status = 'ACTIVE';
-                else {
-                    oldEntry.lastSeenActiveTimestamp = Date.now();
-                    newDriverDataStore.set(driverNum, oldEntry);
-                }
-            }
-        } else if (oldEntry.status === 'OUT') {
-            if (!newEntry) {
-                newDriverDataStore.set(driverNum, oldEntry);
-            } else {
-                newEntry.status = 'OUT';
-                // Preserve essential data for OUT drivers if new entry is sparse
-                if (!newEntry.lapData && oldEntry.lapData) newEntry.lapData = oldEntry.lapData;
-                if (!newEntry.positionData && oldEntry.positionData) newEntry.positionData = oldEntry.positionData;
-                if (!newEntry.stintData && oldEntry.stintData) newEntry.stintData = oldEntry.stintData;
-            }
-        }
-
-    });
-
     // If session is not a race, clear lap diffs and set status for non-active drivers
     if (currentSessionDetails?.session_type !== 'Race') {
         driverDataStore.forEach(entry => {
@@ -361,24 +317,6 @@ function processAndBuildDisplayData(apiData) {
             displayDriver.laps_on_current_set = entry.stintData.tyre_age_at_start;
         }
 
-        // Position Change
-        displayDriver.pos_change = { text: '-', class: 'pos-no-change' };
-        const lastRendered = lastKnownRenderedPositions[displayDriver.driver_number];
-        if (displayDriver.status === 'ACTIVE' && lastRendered && lastRendered.position !== undefined && displayDriver.position !== undefined && displayDriver.position !== lastRendered.position) {
-            const diff = lastRendered.position - displayDriver.position;
-            if (diff > 0) displayDriver.pos_change = { text: `▲${diff}`, class: 'pos-up' };
-            else if (diff < 0) displayDriver.pos_change = { text: `▼${Math.abs(diff)}`, class: 'pos-down' };
-        } else if (displayDriver.status === 'OUT') {
-            displayDriver.pos_change = { text: 'OUT', class: 'info-out' };
-        }
-        if (displayDriver.status === 'ACTIVE' && displayDriver.position !== undefined) {
-            lastKnownRenderedPositions[displayDriver.driver_number] = { position: displayDriver.position, lap_number_for_dnf: displayDriver.current_lap_number };
-        } else if (displayDriver.status === 'OUT' && (!lastKnownRenderedPositions[displayDriver.driver_number] || lastKnownRenderedPositions[displayDriver.driver_number]?.lap_number_for_dnf === '-')) {
-            lastKnownRenderedPositions[displayDriver.driver_number] = {
-                position: displayDriver.position || lastRendered?.position,
-                lap_number_for_dnf: displayDriver.current_lap_number
-            };
-        }
 
         // LAP DIFFERENCE CALCULATION
         // For lap difference calculation, we need the true total laps completed by the leader
@@ -390,9 +328,7 @@ function processAndBuildDisplayData(apiData) {
         // Calculate the difference in completed laps. A positive value means the driver is laps down.
         const lapDifference = leaderTotalCompletedLaps - driverTotalCompletedLaps;
 
-        if (displayDriver.status === 'OUT') {
-            displayDriver.lap_difference = '-'; // Or you could show the last known difference: `+${lapDifference}`
-        } else if (lapDifference > 0) {
+        if (lapDifference > 0) {
             displayDriver.lap_difference = `+${lapDifference}`;
         }
 
