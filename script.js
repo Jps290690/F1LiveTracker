@@ -167,15 +167,6 @@ function processAndBuildDisplayData(apiData) {
             latestStints.set(stint.driver_number, stint);
         }
     });
-    // Verificamos si el piloto abandonó al terminar su último stint
-    latestStints.forEach((stint, driverNum) => {
-        const entry = newDriverDataStore.get(driverNum);
-        if (entry && stint.lap_end && totalLapsForSession && stint.lap_end === totalLapsForSession) {
-            entry.status = 'OUT';
-            console.log(`Driver ${driverNum} status set to: ${entry.status}`);
-            entry.outReason = 'Stint ended at last lap'; // info opcional para usar después
-        }
-    });
     latestStints.forEach(stint => {
         let entry = newDriverDataStore.get(stint.driver_number);
         if (entry) entry.stintData = stint;
@@ -195,7 +186,6 @@ function processAndBuildDisplayData(apiData) {
             entry.positionData = pos;
         }
         entry.status = 'ACTIVE';
-        console.log(`Driver ${entry.driverDetail.driver_number} status set to: ${entry.status}`);
         entry.lastSeenActiveTimestamp = Date.now();
     });
 
@@ -243,8 +233,7 @@ function processAndBuildDisplayData(apiData) {
             team_name: entry.driverDetail.team_name || 'N/A',
             team_colour: entry.driverDetail.team_colour || '333333',
             status: entry.status,
-            current_lap_number: entry.lapData?.lap_number ||
-                (entry.status === 'OUT' ? (lastKnownRenderedPositions[entry.driverDetail.driver_number]?.lap_number_for_dnf || '-') : 0)
+            current_lap_number: entry.lapData?.lap_number
         };
 
         // Store first known position if not already stored in the driverDataStore entry
@@ -260,8 +249,6 @@ function processAndBuildDisplayData(apiData) {
             if ([10, 12, 14].includes(drsCode)) displayDriver.drs = { status: 'OPEN', class: 'drs-enabled' };
             else if (drsCode === 8) displayDriver.drs = { status: 'AVAIL', class: 'drs-available' };
             else displayDriver.drs = { status: 'OFF', class: 'drs-disabled' };
-        } else if (displayDriver.status === 'OUT') {
-            displayDriver.drs = { status: 'N/A', class: '' };
         }
 
         // Position Change Info
@@ -283,14 +270,6 @@ function processAndBuildDisplayData(apiData) {
         } else {
             displayDriver.info.text = 'N/A';
             displayDriver.info.class = '';
-        }
-
-        // Agregamos OUT como info secundaria solo si aplica
-        if (
-            displayDriver.status === 'OUT' &&
-            currentSessionDetails?.session_type === 'Race'
-        ) {
-            displayDriver.info.secondary = 'OUT';
         }
 
 
@@ -329,9 +308,7 @@ function processAndBuildDisplayData(apiData) {
 
         // GAP LOGIC (Updated to use total laps)
         displayDriver.gap = { main: '--', secondary: '', lapDiff: '' };
-        if (displayDriver.status === 'OUT' && entry.positionData?.position !== 1) { // P1 can also be OUT at the end of the race, but won't have a gap
-            displayDriver.gap.interval = 'OUT';
-        } else if (entry.positionData?.position === 1) {
+        if (entry.positionData?.position === 1) {
             displayDriver.gap.interval = ''; // P1 has no interval or gap to leader
             currentGlobalLapsDownContext = ""; // Reset context for P1
         } else {
@@ -381,12 +358,10 @@ function processAndBuildDisplayData(apiData) {
 
         // Lap Times
         displayDriver.last_lap_str = '--:--:--';
-        if (displayDriver.status === 'OUT') displayDriver.last_lap_str = (entry.lapData?.lap_duration ? formatTime(entry.lapData.lap_duration) : 'OUT');
-        else if (entry.lapData?.is_pit_out_lap) displayDriver.last_lap_str = 'OUTLAP';
+        if (entry.lapData?.is_pit_out_lap) displayDriver.last_lap_str = 'OUTLAP';
         else if (entry.lapData?.lap_duration) displayDriver.last_lap_str = formatTime(entry.lapData.lap_duration);
 
         displayDriver.personal_best_str = entry.personalBestLapTime ? formatTime(entry.personalBestLapTime) : '--:--:--';
-        if (displayDriver.status === 'OUT' && !entry.personalBestLapTime) displayDriver.personal_best_str = 'N/A';
 
         displayArray.push(displayDriver);
     });
@@ -480,7 +455,7 @@ function renderTableDOM(drivers) {
     drivers.forEach((driver) => {
         const row = tbody.insertRow();
         row.id = `driver-row-${driver.driver_number}`;
-        row.className = driver.status === 'OUT' ? 'status-out' : '';
+        row.className = '';
         row.style.borderLeft = `5px solid #${driver.team_colour || '333'}`;
 
         for (let i = 0; i < 8; i++) row.insertCell(); // 8 cells for the standard columns
