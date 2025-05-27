@@ -116,7 +116,7 @@ async function fetchAllDataForSession(sessionKey) {
         } else if (currentSessionDetails?.date_end) {
             // Sesión terminada: usar fin de sesión - 1 minuto, formateado con la nueva función
             const sessionEndDate = new Date(currentSessionDetails.date_end); // Asume que date_end es un string de fecha válido
-            const targetDate = new Date(sessionEndDate.getTime() - 60 * 1000 * 30);
+            const targetDate = new Date(sessionEndDate.getTime() - 60 * 1000 * 15);
             const formattedTargetDate = formatDateForApi(targetDate);
             if (formattedTargetDate) {
                 carDataDateParam = `&date>=${formattedTargetDate}`;
