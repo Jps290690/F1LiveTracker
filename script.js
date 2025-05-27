@@ -292,6 +292,15 @@ function processAndBuildDisplayData(apiData) {
  // INFO Column - Position Change Logic
  displayDriver.info = { text: '', class: '' }; // Initialize info field
  const driverEntryInStore = driverDataStore.get(displayDriver.driver_number);
+ // Display First and Last Positions in INFO column
+ if (driverEntryInStore && driverEntryInStore.firstKnownPosition !== undefined) {
+            displayDriver.info.text = `First: ${driverEntryInStore.firstKnownPosition}, Last: ${displayDriver.position !== undefined ? displayDriver.position : '-'}`;
+ } else if (displayDriver.position !== undefined) {
+            displayDriver.info.text = `Last: ${displayDriver.position}`;
+ } else {
+            displayDriver.info.text = '-';
+ }
+ // The position change calculation logic remains, but isn't used for display in this column.
  if (driverEntryInStore && driverEntryInStore.firstKnownPosition !== undefined && displayDriver.position !== undefined) {
  const firstPos = driverEntryInStore.firstKnownPosition;
  const currentPos = displayDriver.position;
