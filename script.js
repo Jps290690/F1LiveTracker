@@ -98,30 +98,19 @@ async function fetchAllDataForSession(sessionKey) {
     if (!sessionKey) return null;
     try {
         let carDataDateParam = '';
-        if (isSessionLive) {
-            if (p1LastLapStartDateForCarData) {
-                // La fecha de start_date del endpoint /laps ya está en el formato correcto
-                // Ejemplo: "2023-09-16T13:59:07.606000+00:00"
-                carDataDateParam = `&date=>=${p1LastLapStartDateForCarData}`;
-                // console.log("Using P1 lap start_date for car_data (already formatted):", p1LastLapStartDateForCarData);
-            } else {
-                // Fallback: tiempo actual - 1 minuto, formateado con la nueva función
-                const fallbackDate = new Date(Date.now() - 60 * 1000);
-                const formattedFallbackDate = formatDateForApi(fallbackDate);
-                if (formattedFallbackDate) {
-                    carDataDateParam = `&date=>=${formattedFallbackDate}`;
-                }
-                // console.log("P1 lap start_date not available, using fallback for car_data date:", formattedFallbackDate);
+        if (p1LastLapStartDateForCarData) {
+            // La fecha de start_date del endpoint /laps ya está en el formato correcto
+            // Ejemplo: "2023-09-16T13:59:07.606000+00:00"
+            carDataDateParam = `&date=>=${p1LastLapStartDateForCarData}`;
+            console.log("Using P1 lap start_date for car_data (already formatted):", p1LastLapStartDateForCarData);
+        } else {
+            // Fallback: tiempo actual - 1 minuto, formateado con la nueva función
+            const fallbackDate = new Date(Date.now() - 60 * 1000);
+            const formattedFallbackDate = formatDateForApi(fallbackDate);
+            if (formattedFallbackDate) {
+                carDataDateParam = `&date=>=${formattedFallbackDate}`;
             }
-        } else if (currentSessionDetails?.date_end) {
-            // Sesión terminada: usar fin de sesión - 1 minuto, formateado con la nueva función
-            const sessionEndDate = new Date(currentSessionDetails.date_end); // Asume que date_end es un string de fecha válido
-            const targetDate = new Date(sessionEndDate.getTime() - 60 * 1000);
-            const formattedTargetDate = formatDateForApi(targetDate);
-            if (formattedTargetDate) {
-                carDataDateParam = `&date=>=${formattedTargetDate}`;
-            }
-            // console.log("Session finished, using session_end - 1min for car_data (formatted):", formattedTargetDate);
+            console.log("P1 lap start_date not available, using fallback for car_data date:", formattedFallbackDate);
         }
 
         const endpoints = [
