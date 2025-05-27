@@ -304,6 +304,12 @@ main {
     /* Reducido */
 }
 
+.status-out {
+    opacity: 0.5;
+    background-color: #eee !important;
+    color: #888;
+}
+
 footer {
     margin-top: auto;
     background-color: #333;

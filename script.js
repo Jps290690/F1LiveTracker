@@ -167,6 +167,14 @@ function processAndBuildDisplayData(apiData) {
             latestStints.set(stint.driver_number, stint);
         }
     });
+    // Verificamos si el piloto abandonó al terminar su último stint
+    latestStints.forEach((stint, driverNum) => {
+        const entry = newDriverDataStore.get(driverNum);
+        if (entry && stint.lap_end && totalLapsForSession && stint.lap_end === totalLapsForSession) {
+            entry.status = 'OUT';
+            entry.outReason = 'Stint ended at last lap'; // info opcional para usar después
+        }
+    });
     latestStints.forEach(stint => {
         let entry = newDriverDataStore.get(stint.driver_number);
         if (entry) entry.stintData = stint;
@@ -307,17 +315,31 @@ function processAndBuildDisplayData(apiData) {
         
         // Position Change Info
         const posHistory = positionHistoryMap.get(displayDriver.driver_number);
+        displayDriver.info = { text: '', class: '', secondary: '' };
+
         if (posHistory && posHistory.first !== undefined && posHistory.last !== undefined) {
             const diff = posHistory.first - posHistory.last;
             if (diff > 0) {
-                displayDriver.info = { text: `▲${diff}`, class: 'pos-up' };
+                displayDriver.info.text = `▲${diff}`;
+                displayDriver.info.class = 'pos-up';
             } else if (diff < 0) {
-                displayDriver.info = { text: `▼${Math.abs(diff)}`, class: 'pos-down' };
+                displayDriver.info.text = `▼${Math.abs(diff)}`;
+                displayDriver.info.class = 'pos-down';
             } else {
-                displayDriver.info = { text: '—', class: 'pos-no-change' };
+                displayDriver.info.text = '—';
+                displayDriver.info.class = 'pos-no-change';
             }
         } else {
-            displayDriver.info = { text: 'N/A', class: '' };
+            displayDriver.info.text = 'N/A';
+            displayDriver.info.class = '';
+        }
+
+        // Agregamos OUT como info secundaria solo si aplica
+        if (
+            displayDriver.status === 'OUT' &&
+            currentSessionDetails?.session_type === 'Race'
+        ) {
+            displayDriver.info.secondary = 'OUT';
         }
 
 
@@ -550,7 +572,11 @@ function renderTableDOM(drivers) {
                 </div>
             </div>`;
 
-        row.cells[5].innerHTML = `<span class="${driver.info.class}">${driver.info.text}</span>`;
+        row.cells[5].innerHTML = `
+            <div>
+                <span class="${driver.info.class}">${driver.info.text}</span>
+                ${driver.info.secondary ? `<div style="font-size: 0.75em; color: #888;">${driver.info.secondary}</div>` : ''}
+            </div>`;
         row.cells[6].innerHTML = `
             ${driver.gap.interval ? `<span class="gap-interval">${driver.gap.interval}</span>` : ''}
             <span class="gap-main">${driver.gap.main}</span>
