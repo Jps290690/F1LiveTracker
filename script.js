@@ -230,6 +230,14 @@ function processAndBuildDisplayData(apiData) {
                 if (!newEntry.stintData && oldEntry.stintData) newEntry.stintData = oldEntry.stintData;
             }
         }
+
+        // Initialize first and last known positions if not already present
+ if (!oldEntry.firstKnownPosition) {
+ oldEntry.firstKnownPosition = oldEntry.positionData?.position;
+ }
+ if (oldEntry.positionData?.position !== undefined) {
+ oldEntry.lastKnownPosition = oldEntry.positionData?.position;
+ }
     });
 
  // If session is not a race, clear lap diffs and set status for non-active drivers
@@ -280,6 +288,21 @@ function processAndBuildDisplayData(apiData) {
         } else if (displayDriver.status === 'OUT') {
             displayDriver.drs = { status: 'N/A', class: '' };
     }
+
+ // INFO Column - Position Change Logic
+ displayDriver.info = { text: '', class: '' }; // Initialize info field
+ const driverEntryInStore = driverDataStore.get(displayDriver.driver_number);
+ if (driverEntryInStore && driverEntryInStore.firstKnownPosition !== undefined && displayDriver.position !== undefined) {
+ const firstPos = driverEntryInStore.firstKnownPosition;
+ const currentPos = displayDriver.position;
+ const posDiff = firstPos - currentPos;
+
+ if (posDiff > 0) {
+ displayDriver.info = { text: `+${posDiff}`, class: 'info-up' };
+ } else if (posDiff < 0) {
+ displayDriver.info = { text: `${posDiff}`, class: 'info-down' };
+ }
+ }
 
     // Tyres & Pits
         displayDriver.compound = 'N/A';
@@ -511,7 +534,7 @@ function renderTableDOM(drivers) {
             </div>`;
 
         row.cells[5].innerHTML = `<span class="${driver.pos_change.class}">${driver.pos_change.text}</span>`;
-        row.cells[6].innerHTML = `
+ row.cells[6].innerHTML = `
             ${driver.gap.interval ? `<span class="gap-interval">${driver.gap.interval}</span>` : ''}
  <span class="gap-main">${driver.gap.main}</span>
             ${driver.gap.lapDiff ? `<span class="gap-secondary-info">${driver.gap.lapDiff}</span>` : ''}
