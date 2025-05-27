@@ -284,13 +284,19 @@ main {
 
 .gap-main {
     display: block;
-    font-size: 0.7em;
-    color: #aaa;
-    margin-top: 1px;
+    font-weight: normal;
+    font-size: 0.9em;
     /* Reducido */
 }
 
-.gap-lap-diff {
+.gap-interval {
+    display: block;
+    font-weight: normal;
+    font-size: 0.9em;
+    /* Reducido */
+}
+
+.gap-secondary-info {
     display: block;
     font-size: 0.7em;
     color: #aaa;
