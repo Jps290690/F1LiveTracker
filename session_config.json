@@ -1,7 +1,12 @@
 {
-    "latest_session_key": 9964,
+    "latest_session_key": 9965,
     "sessions": {
         "9964": {
+            "totalLaps": 0,
+            "notes": "Add a note here if you like",
+            "flag": "images/esp.svg"
+        },
+        "9965": {
             "totalLaps": 0,
             "notes": "Add a note here if you like",
             "flag": "images/esp.svg"
