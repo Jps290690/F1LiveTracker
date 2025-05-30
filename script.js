@@ -1,5 +1,5 @@
 const API_BASE_URL = 'https://api.openf1.org/v1';
-const POLLING_INTERVAL = 1000; // ms
+const POLLING_INTERVAL = 5000; // ms
 
 // DOM Elements
 const eventTitleEl = document.getElementById('event-title');
